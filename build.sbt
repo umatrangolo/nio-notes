@@ -1,4 +1,4 @@
-name := "gilt-NIO"
+name := "nio-notes"
 
 version := "0.0.1"
 
