@@ -486,42 +486,42 @@ will perform the needed business logic to emit a correct response.
 
 The most famous NIO framework is Netty and this is its workflow:
 
-                                       I/O Request
-                                           |
-  +----------------------------------------+---------------+
-  |                  ChannelPipeline       |               |
-  |                                       \|/              |
-  |  +----------------------+  +-----------+------------+  |
-  |  | Upstream Handler  N  |  | Downstream Handler  1  |  |
-  |  +----------+-----------+  +-----------+------------+  |
-  |            /|\                         |               |
-  |             |                         \|/              |
-  |  +----------+-----------+  +-----------+------------+  |
-  |  | Upstream Handler N-1 |  | Downstream Handler  2  |  |
-  |  +----------+-----------+  +-----------+------------+  |
-  |            /|\                         .               |
-  |             .                          .               |
-  |     [ sendUpstream() ]        [ sendDownstream() ]     |
-  |     [ + INBOUND data ]        [ + OUTBOUND data  ]     |
-  |             .                          .               |
-  |             .                         \|/              |
-  |  +----------+-----------+  +-----------+------------+  |
-  |  | Upstream Handler  2  |  | Downstream Handler M-1 |  |
-  |  +----------+-----------+  +-----------+------------+  |
-  |            /|\                         |               |
-  |             |                         \|/              |
-  |  +----------+-----------+  +-----------+------------+  |
-  |  | Upstream Handler  1  |  | Downstream Handler  M  |  |
-  |  +----------+-----------+  +-----------+------------+  |
-  |            /|\                         |               |
-  +-------------+--------------------------+---------------+
-                |                         \|/
-  +-------------+--------------------------+---------------+
-  |             |                          |               |
-  |     [ Socket.read() ]          [ Socket.write() ]      |
-  |                                                        |
-  |  Netty Internal I/O Threads (Transport Implementation) |
-  +--------------------------------------------------------+
+                                         I/O Request
+                                             |
+    +----------------------------------------+---------------+
+    |                  ChannelPipeline       |               |
+    |                                       \|/              |
+    |  +----------------------+  +-----------+------------+  |
+    |  | Upstream Handler  N  |  | Downstream Handler  1  |  |
+    |  +----------+-----------+  +-----------+------------+  |
+    |            /|\                         |               |
+    |             |                         \|/              |
+    |  +----------+-----------+  +-----------+------------+  |
+    |  | Upstream Handler N-1 |  | Downstream Handler  2  |  |
+    |  +----------+-----------+  +-----------+------------+  |
+    |            /|\                         .               |
+    |             .                          .               |
+    |     [ sendUpstream() ]        [ sendDownstream() ]     |
+    |     [ + INBOUND data ]        [ + OUTBOUND data  ]     |
+    |             .                          .               |
+    |             .                         \|/              |
+    |  +----------+-----------+  +-----------+------------+  |
+    |  | Upstream Handler  2  |  | Downstream Handler M-1 |  |
+    |  +----------+-----------+  +-----------+------------+  |
+    |            /|\                         |               |
+    |             |                         \|/              |
+    |  +----------+-----------+  +-----------+------------+  |
+    |  | Upstream Handler  1  |  | Downstream Handler  M  |  |
+    |  +----------+-----------+  +-----------+------------+  |
+    |            /|\                         |               |
+    +-------------+--------------------------+---------------+
+                  |                         \|/
+    +-------------+--------------------------+---------------+
+    |             |                          |               |
+    |     [ Socket.read() ]          [ Socket.write() ]      |
+    |                                                        |
+    |  Netty Internal I/O Threads (Transport Implementation) |
+    +--------------------------------------------------------+
 
 Netty works around the concept of two pipelines of Handlers: one
 upstream and one downstream. The first one is used to decode and
