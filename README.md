@@ -19,12 +19,12 @@ the running server.
 
 The server is a simple echo server implemented in three different ways:
 
-1 - Plain socket server (thread-per-server)
-2 - NIO Channels (thread-per-event)
-3 - Netty (undercover NIO)
+* Plain socket server (thread-per-server)
+* NIO Channels (thread-per-event)
+* Netty (undercover NIO)
 
 Lots of missing parts and poor concurrency handling: don't do this at home!
 
----
 ugo.matrangolo@gmail.com
 23-May-2013
+---
