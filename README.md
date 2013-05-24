@@ -24,7 +24,3 @@ The server is a simple echo server implemented in three different ways:
 * Netty (undercover NIO)
 
 Lots of missing parts and poor concurrency handling: don't do this at home!
-
-ugo.matrangolo@gmail.com
-23-May-2013
----
