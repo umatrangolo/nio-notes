@@ -266,3 +266,124 @@ java.nio._ contains a lot more. Just to scratch:
 
 - Decorations of the ByteBuffer to have CharBuffer, FloatBuffer, DoubleBuffer ...
 - Compacting, bulk moves, views, etc ...
+
+### java.nio.Channel
+
+A *Channel* models a duplex communication media. Buffers are used to
+write something in a Channel and to read stuff from it. This is what
+the JVM uses to represent a file descriptor from the OS.
+
+We usually bind a Channel to a File or to a Socket. We are interested
+in the networking part so we will focus only on the the former usage.
+
+There are two related Channel impls for networking:
+
+- java.nio.channels.ServerSocketChannel
+- java.nio.channels.SocketChannel
+
+The first one is used to accept incoming connection requests while the
+second is the final socket that comes out from the connection
+handshaking.
+
+Let's fire up a little server on port 1090:
+
+    scala> val ssc = java.nio.channels.ServerSocketChannel.open()
+    ssc: java.nio.channels.ServerSocketChannel = sun.nio.ch.ServerSocketChannelImpl[unbound]
+
+The server Channel is ready but still unbound. Every Channel has an
+internal socket that we can use: this allowed to not copy over all the
+java.net._ API to the NIO package.
+
+    scala> ssc.socket.bind(new java.net.InetSocketAddress(1090))
+
+    scala> ssc
+    res24: java.nio.channels.ServerSocketChannel = sun.nio.ch.ServerSocketChannelImpl[/0.0.0.0:1090]
+
+Now our socket is bound and we can start to accept connections:
+
+    scala> ssc.accept() // this will block!
+
+Ouch! This call is blocking even if we are using the NIO
+package. Actually, this is desired behavior: until not configured
+accordingly every Channel will be in blocking mode:
+
+    scala> ssc.isBlocking
+    res26: Boolean = true
+
+    scala> ssc.configureBlocking(false)
+    res27: java.nio.channels.SelectableChannel = sun.nio.ch.ServerSocketChannelImpl[/0.0.0.0:1090]
+
+    scala> ssc.isBlocking
+    res28: Boolean = false
+
+Now let's try again:
+
+    scala> ssc.accept()
+    res29: java.nio.channels.SocketChannel = null
+
+As expected we got a null. The accept() call had nothing to connect to
+and given that now ssc is now in non blocking mode it returned null.
+
+If we fire up a telent in another window:
+
+   IRL-ML-DUBLIN:~ umatrangolo$ telnet localhost 1090
+   Trying ::1...
+   Connected to localhost.
+   Escape character is '^]'.
+
+and we try again to accept:
+
+     scala> val sc = ssc.accept()
+     sc: java.nio.channels.SocketChannel = java.nio.channels.SocketChannel[connected local=/0:0:0:0:0:0:0:1:1090 remote=/0:0:0:0:0:0:0:1:65519]
+
+This time there was something to accept and we got a nice socket
+channel to work with the client:
+
+Let's say 'Hello' from the telnet client and try to read it from the Channel. We need a Buffer
+to store the incoming bytes:
+
+    scala> val bb = java.nio.ByteBuffer.allocateDirect(16)
+    bb: java.nio.ByteBuffer = java.nio.DirectByteBuffer[pos=0 lim=16 cap=16]
+
+    scala> sc.read(bb) // blocks!
+
+Again! We need to configure the client socket to be non blocking:
+
+    scala> sc.configureBlocking(false)
+    res35: java.nio.channels.SelectableChannel = java.nio.channels.SocketChannel[connected local=/0:0:0:0:0:0:0:1:1090 remote=/0:0:0:0:0:0:0:1:65519]
+
+Try again:
+
+    scala> sc.read(bb)
+    res42: Int = 0
+
+This time the read() call returned instantly and given that there was
+nothing to read it read nothing and out buffer is empty:
+
+    scala> bb
+    res43: java.nio.ByteBuffer = java.nio.DirectByteBuffer[pos=0 lim=16 cap=16]
+
+If we write something in the Telent shell and we read() again:
+
+    scala> sc.read(bb)
+    res44: Int = 8
+
+    scala> bb
+    res45: java.nio.ByteBuffer = java.nio.DirectByteBuffer[pos=8 lim=16 cap=16]
+
+    scala> bb.flip()
+    res46: java.nio.Buffer = java.nio.DirectByteBuffer[pos=0 lim=8 cap=16]
+
+    scala> bb.get(0) == 'H'.toChar
+    res47: Boolean = true
+
+Excellent! This time we had something from the Channel and we now have
+all the bytes in the buffer ready to be processed.
+
+This is the most basic non-blocking IO operation that could be done
+with NIO. Channel and Buffer are potentially all we need to perform
+non blocking IO but it will be tedious and requires a lot of crafting
+around the polling of all our channels. Luckily there is the final
+piece: SelectableChannel and multiplexed IO.
+
+### Selector
