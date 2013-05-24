@@ -387,3 +387,76 @@ around the polling of all our channels. Luckily there is the final
 piece: SelectableChannel and multiplexed IO.
 
 ### Selector
+
+Here it comes the Java select() call that mimics the epoll_*() calls
+we found in the OS layer. The selection process comprises:
+
+- A `Selector` object that holds all the channels you are intersted on.
+- A `SelectionKey` that keeps track of a registration op and on what
+  kind of operation on the channel are we intersted.
+- The select() call on a Selector that blocks and returns all `ready
+  to be serviced` channels.
+
+Let's have the open connections:
+
+    scala> val sc1 = ssc.accept()
+    sc1: java.nio.channels.SocketChannel = java.nio.channels.SocketChannel[connected local=/0:0:0:0:0:0:0:1:1090 remote=/0:0:0:0:0:0:0:1:49686]
+
+    scala> val sc2 = ssc.accept()
+    sc2: java.nio.channels.SocketChannel = java.nio.channels.SocketChannel[connected local=/0:0:0:0:0:0:0:1:1090 remote=/0:0:0:0:0:0:0:1:49699]
+
+    scala> val sc3 = ssc.accept()
+    sc3: java.nio.channels.SocketChannel = java.nio.channels.SocketChannel[connected local=/0:0:0:0:0:0:0:1:1090 remote=/0:0:0:0:0:0:0:1:49704]
+
+Creating a Selector:
+
+    scala> val selector = java.nio.channels.Selector.open()
+    selector: java.nio.channels.Selector = sun.nio.ch.KQueueSelectorImpl@73514aec
+
+With this selector we can declare interest in reading from each one of
+the channels:
+
+    scala> sc1.register(selector, java.nio.channels.SelectionKey.OP_READ)
+    res57: java.nio.channels.SelectionKey = sun.nio.ch.SelectionKeyImpl@1ee902cd
+
+    scala> sc2.register(selector, java.nio.channels.SelectionKey.OP_READ)
+    res58: java.nio.channels.SelectionKey = sun.nio.ch.SelectionKeyImpl@2c5506e9
+
+    scala> sc3.register(selector, java.nio.channels.SelectionKey.OP_READ)
+    res59: java.nio.channels.SelectionKey = sun.nio.ch.SelectionKeyImpl@10b0b504
+
+Here we just registered our interest in reading from each
+SocketChannel. The list of possibl events that we can use during
+registration is:
+
+    scala> java.nio.channels.SelectionKey.OP_
+    OP_ACCEPT    OP_CONNECT   OP_READ      OP_WRITE
+
+If we try to select():
+
+    scala> selector.select(1000)
+    res60: Int = 0
+
+We just tried to select() with a timeout of 1sec. Given that there is
+no read operation ready to be performed the call returned a 0 as the
+number of ready channels.
+
+If we write something from one of our Telnet shells and we try again
+to select():
+
+    scala> selector.select(1000)
+    res61: Int = 1
+
+the call returns immediately telling us that there is a channel ready
+to serviced.
+
+    scala> selector.selectedKeys
+    res62: java.util.Set[java.nio.channels.SelectionKey] = [sun.nio.ch.SelectionKeyImpl@1ee902cd]
+
+We could now pass this set to a dispathcer that will loop on the
+selected keys and process the incoming requests sharing the work on
+a *bounded* pool of threads.
+
+The point of all of this is that we are now handling 3 live
+connections with a single thread (the REPL one) and we are not limited
+anymore by the thread-per-request model.
