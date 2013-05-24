@@ -83,7 +83,7 @@ and make our way up to the application layer:
             ... thousands of concurrent clients ....
 
         --app------------------------------------------
-                   Your c10k compliant web app
+             Your c10k compliant web app (e.g. Play)
         --framework------------------------------------
           (Reactor pattern) --> Netty, Grizzly, Ning
         --JVM------------------------------------------
@@ -191,7 +191,7 @@ where we will have that pos=5 lim=8 cap=8.
 
 NIO prefers to handle incoming/outcoming data as stream of bytes; the
 main implementation of the Buffer type is the ByteBuffer class that
-can be created using two static factory method:
+can be created using two static factory methods:
 
     scala> java.nio.ByteBuffer.allocate(8)
     res1: java.nio.ByteBuffer = java.nio.HeapByteBuffer[pos=0 lim=8 cap=8]
@@ -203,18 +203,18 @@ or
 
 The difference is important: the first one creates a plain buffer
 located in the heap while the second one creates a `direct` buffer:
-one that is places *outside* the heap as far as possible from the
+one that is placed *outside* the heap as far as possible from the
 GC. From a performance point of view this is needed if we think on how
 IO happens between the JVM and the OS: when some piece of data is
 available from the NIC device driver it gets copied into an internal
 kernel buffer. Later on, the JVM requests this data with a sys call
-and the it gets moved in an userland buffer. This means that the same
-piece of data has been moved two times. The JVM can't access a kernel
+and it gets moved in an userland buffer. This means that the same
+piece of data has been moved twice. The JVM can't access a kernel
 buffers and the kernel can't write directly in a JVM buffer because
 the GC can move it around halfway.
 
 To overcome these limitations a direct ByteBuffer is guaranteed to be
-placed in a location outside the JVM's heap where the data can be
+placed in a location outside of the JVM's heap where the data can be
 safely shared (memory mapped) between the kernel and the JVM. Thus,
 the bytes from the NIC are stored and are directly available to the
 JVM wout wasting time moving them around. Also, given that the buffer
@@ -223,9 +223,9 @@ buffer in a more efficient way.
 
 This is what is called Zero-Copy-Buffer in NIO jargon.
 
-Using a Buffer is a bit tricky and required to keep an eye on the
-*position* value otherwise you will end giving a misconfigured buffer
-to a consumer.
+Using a Buffer is a bit tricky and requires to keep an eye on the
+*position* value otherwise you will end up giving a misconfigured
+buffer to a consumer.
 
 To fill a buffer there is the usual put() call:
 
@@ -238,21 +238,21 @@ To fill a buffer there is the usual put() call:
     scala> bb.put('o': Byte)
     res12: java.nio.ByteBuffer = java.nio.HeapByteBuffer[pos=3 lim=8 cap=8]
 
-Note how the position value gets incremented each time.
+Note how the `position` value gets incremented each time.
 
 To read from the buffer:
 
     scala> bb.get()
     res18: Byte = 0
 
-as expected: we got a 0 because the *position* was not pointing to the
-first byte of `Foo`. To actually retrieve the content of the buffer we
-need to switch in `drain` mode using the flip() call:
+as expected: we got a 0 because the `position` was not pointing to the
+first byte of 'Foo'. To actually retrieve the content of the buffer we
+need to switch in 'drain' mode using the `flip()` call:
 
     scala> bb.flip()
     res19: java.nio.Buffer = java.nio.HeapByteBuffer[pos=0 lim=4 cap=8]
 
-The flip() call moved the indexes so the buffer can now be safely
+The `flip()` call moved the indexes so the buffer can now be safely
 drained:
 
     scala> bb.get()
@@ -292,7 +292,7 @@ Let's fire up a little server on port 1090:
 
 The server Channel is ready but still unbound. Every Channel has an
 internal socket that we can use: this allowed to not copy over all the
-java.net._ API to the NIO package.
+java.net._ API into the NIO package.
 
     scala> ssc.socket.bind(new java.net.InetSocketAddress(1090))
 
@@ -324,7 +324,7 @@ Now let's try again:
 As expected we got a null. The accept() call had nothing to connect to
 and given that now ssc is now in non blocking mode it returned null.
 
-If we fire up a telent in another window:
+If we fire up a telnet in another window:
 
    IRL-ML-DUBLIN:~ umatrangolo$ telnet localhost 1090
    Trying ::1...
@@ -358,12 +358,12 @@ Try again:
     res42: Int = 0
 
 This time the read() call returned instantly and given that there was
-nothing to read it read nothing and out buffer is empty:
+nothing to read our buffer is empty:
 
     scala> bb
     res43: java.nio.ByteBuffer = java.nio.DirectByteBuffer[pos=0 lim=16 cap=16]
 
-If we write something in the Telent shell and we read() again:
+If we write something in the Telnet shell and we read() again:
 
     scala> sc.read(bb)
     res44: Int = 8
@@ -426,7 +426,7 @@ the channels:
     res59: java.nio.channels.SelectionKey = sun.nio.ch.SelectionKeyImpl@10b0b504
 
 Here we just registered our interest in reading from each
-SocketChannel. The list of possibl events that we can use during
+SocketChannel. The list of possible events that we can use during
 registration is:
 
     scala> java.nio.channels.SelectionKey.OP_
@@ -437,7 +437,7 @@ If we try to select():
     scala> selector.select(1000)
     res60: Int = 0
 
-We just tried to select() with a timeout of 1sec. Given that there is
+We just tried to select() with a timeout of 1 sec. Given that there is
 no read operation ready to be performed the call returned a 0 as the
 number of ready channels.
 
@@ -453,7 +453,7 @@ to serviced.
     scala> selector.selectedKeys
     res62: java.util.Set[java.nio.channels.SelectionKey] = [sun.nio.ch.SelectionKeyImpl@1ee902cd]
 
-We could now pass this set to a dispathcer that will loop on the
+We could now pass this set to a dispatcher that will loop on the
 selected keys and process the incoming requests sharing the work on
 a *bounded* pool of threads.
 
@@ -481,7 +481,7 @@ handling connections and the threads processing the requests. An
 Acceptor waits for incoming connections and passes the resulting
 client socket to a Dispatcher that will register it on a Selector. As
 soon something comes out from this socket the incoming data is
-extracted and passed to a pool to Handlers (provided by the user) that
+extracted and passed to a pool of Handlers (provided by the user) that
 will perform the needed business logic to emit a correct response.
 
 The most famous NIO framework is Netty and this is its workflow:
