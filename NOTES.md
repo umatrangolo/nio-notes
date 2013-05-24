@@ -148,3 +148,121 @@ same logic we found at the OS level with the epoll() calls.
 
 java.nio._
 ----------
+
+NIO on the JVM is implemented in the java.nio._ package and uses the following
+classes and types that we will explore in details:
+
+- java.nio.Buffer
+- java.nio.ByteBuffer
+- java.nio.channels.Channel
+- java.nio.channels.Selector
+- java.nio.channels.SelectionKey
+
+### java.nio.Buffer
+
+This is the basic type that is used along all the NIO machinery. It
+provides a way to efficiently store, manipulate and move around
+chuncks of bytes.
+
+Each Buffer is characterized by 4 indexes:
+
+- capacity
+  The max amount of items the buffer can hold.
+- limit
+  The first element of the buffer that can't be read/written.
+- position
+  The index of the next element to be read or written.
+- mark
+  A `bookmarked` position inside the buffer.
+
+During all operations on a Buffer the following invariant is always
+met:
+
+        0 <= mark <= position <= limit <= capacity
+
+A typical buffer containing the string 'Hello' would be like:
+
+            0   1   2   3   4   5   6   7   8
+            +-------------------------------+
+            | H | e | l | l | o |   |   |   |( )
+            +-------------------------------+
+
+where we will have that pos=5 lim=8 cap=8.
+
+NIO prefers to handle incoming/outcoming data as stream of bytes; the
+main implementation of the Buffer type is the ByteBuffer class that
+can be created using two static factory method:
+
+    scala> java.nio.ByteBuffer.allocate(8)
+    res1: java.nio.ByteBuffer = java.nio.HeapByteBuffer[pos=0 lim=8 cap=8]
+
+or
+
+    scala> java.nio.ByteBuffer.allocateDirect(8)
+    res2: java.nio.ByteBuffer = java.nio.DirectByteBuffer[pos=0 lim=8 cap=8]
+
+The difference is important: the first one creates a plain buffer
+located in the heap while the second one creates a `direct` buffer:
+one that is places *outside* the heap as far as possible from the
+GC. From a performance point of view this is needed if we think on how
+IO happens between the JVM and the OS: when some piece of data is
+available from the NIC device driver it gets copied into an internal
+kernel buffer. Later on, the JVM requests this data with a sys call
+and the it gets moved in an userland buffer. This means that the same
+piece of data has been moved two times. The JVM can't access a kernel
+buffers and the kernel can't write directly in a JVM buffer because
+the GC can move it around halfway.
+
+To overcome these limitations a direct ByteBuffer is guaranteed to be
+placed in a location outside the JVM's heap where the data can be
+safely shared (memory mapped) between the kernel and the JVM. Thus,
+the bytes from the NIC are stored and are directly available to the
+JVM wout wasting time moving them around. Also, given that the buffer
+is not affected by the JVM, the OS can use DMA to move bytes in the
+buffer in a more efficient way.
+
+This is what is called Zero-Copy-Buffer in NIO jargon.
+
+Using a Buffer is a bit tricky and required to keep an eye on the
+*position* value otherwise you will end giving a misconfigured buffer
+to a consumer.
+
+To fill a buffer there is the usual put() call:
+
+    scala> bb.put('F': Byte)
+    res10: java.nio.ByteBuffer = java.nio.HeapByteBuffer[pos=1 lim=8 cap=8]
+
+    scala> bb.put('o': Byte)
+    res11: java.nio.ByteBuffer = java.nio.HeapByteBuffer[pos=2 lim=8 cap=8]
+
+    scala> bb.put('o': Byte)
+    res12: java.nio.ByteBuffer = java.nio.HeapByteBuffer[pos=3 lim=8 cap=8]
+
+Note how the position value gets incremented each time.
+
+To read from the buffer:
+
+    scala> bb.get()
+    res18: Byte = 0
+
+as expected: we got a 0 because the *position* was not pointing to the
+first byte of `Foo`. To actually retrieve the content of the buffer we
+need to switch in `drain` mode using the flip() call:
+
+    scala> bb.flip()
+    res19: java.nio.Buffer = java.nio.HeapByteBuffer[pos=0 lim=4 cap=8]
+
+The flip() call moved the indexes so the buffer can now be safely
+drained:
+
+    scala> bb.get()
+    res20: Byte = 70
+
+    scala> 'F'.toByte
+    res21: Byte = 70
+
+These are the most basic things about ByteBuffers. Actually,
+java.nio._ contains a lot more. Just to scratch:
+
+- Decorations of the ByteBuffer to have CharBuffer, FloatBuffer, DoubleBuffer ...
+- Compacting, bulk moves, views, etc ...
