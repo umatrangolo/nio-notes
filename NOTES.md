@@ -80,7 +80,7 @@ To understand how this work we need to start from the OS foundations
 and make our way up to the application layer:
 
 
-           ... thousands of concurrent clients ....
+            ... thousands of concurrent clients ....
 
         --app------------------------------------------
                    Your c10k compliant web app
@@ -146,8 +146,8 @@ manage an epoll instance:
 As we will see all the machinery in java.nio._ will exactly mimic the
 same logic we found at the OS level with the epoll() calls.
 
-java.nio._
-----------
+JVM
+---
 
 NIO on the JVM is implemented in the java.nio._ package and uses the following
 classes and types that we will explore in details:
@@ -182,7 +182,7 @@ met:
 
 A typical buffer containing the string 'Hello' would be like:
 
-            0   1   2   3   4   5   6   7   8
+              0   1   2   3   4   5   6   7   8
             +-------------------------------+
             | H | e | l | l | o |   |   |   |( )
             +-------------------------------+
@@ -460,3 +460,70 @@ a *bounded* pool of threads.
 The point of all of this is that we are now handling 3 live
 connections with a single thread (the REPL one) and we are not limited
 anymore by the thread-per-request model.
+
+Framework
+---------
+
+There is a lot of code that we need to write to handle a couple of
+connections. The thread-per-server model was less scalable but it was
+way more easy to implement. This is where things like Netty, Grizzly
+and Ning are useful.
+
+They are nice libraries that will encapsulate all the NIO machinery
+and will let us write only the final piece of code that process the
+request and emits the outgoing data.
+
+All of them implements in a way or in another a basic pattern used in
+writing efficient and scalable network services: the Reactor pattern.
+
+In a few words the Reactor pattern is a way to decouple the threads
+handling connections and the threads processing the requests. An
+Acceptor waits for incoming connections and passes the resulting
+client socket to a Dispatcher that will register it on a Selector. As
+soon something comes out from this socket the incoming data is
+extracted and passed to a pool to Handlers (provided by the user) that
+will perform the needed business logic to emit a correct response.
+
+The most famous NIO framework is Netty and this is its workflow:
+
+                                       I/O Request
+                                           |
+  +----------------------------------------+---------------+
+  |                  ChannelPipeline       |               |
+  |                                       \|/              |
+  |  +----------------------+  +-----------+------------+  |
+  |  | Upstream Handler  N  |  | Downstream Handler  1  |  |
+  |  +----------+-----------+  +-----------+------------+  |
+  |            /|\                         |               |
+  |             |                         \|/              |
+  |  +----------+-----------+  +-----------+------------+  |
+  |  | Upstream Handler N-1 |  | Downstream Handler  2  |  |
+  |  +----------+-----------+  +-----------+------------+  |
+  |            /|\                         .               |
+  |             .                          .               |
+  |     [ sendUpstream() ]        [ sendDownstream() ]     |
+  |     [ + INBOUND data ]        [ + OUTBOUND data  ]     |
+  |             .                          .               |
+  |             .                         \|/              |
+  |  +----------+-----------+  +-----------+------------+  |
+  |  | Upstream Handler  2  |  | Downstream Handler M-1 |  |
+  |  +----------+-----------+  +-----------+------------+  |
+  |            /|\                         |               |
+  |             |                         \|/              |
+  |  +----------+-----------+  +-----------+------------+  |
+  |  | Upstream Handler  1  |  | Downstream Handler  M  |  |
+  |  +----------+-----------+  +-----------+------------+  |
+  |            /|\                         |               |
+  +-------------+--------------------------+---------------+
+                |                         \|/
+  +-------------+--------------------------+---------------+
+  |             |                          |               |
+  |     [ Socket.read() ]          [ Socket.write() ]      |
+  |                                                        |
+  |  Netty Internal I/O Threads (Transport Implementation) |
+  +--------------------------------------------------------+
+
+Netty works around the concept of two pipelines of Handlers: one
+upstream and one downstream. The first one is used to decode and
+process the incoming data while the second one is used to encode and
+send the response.
