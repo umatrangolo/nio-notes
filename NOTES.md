@@ -123,11 +123,28 @@ manage an epoll instance:
 
 *  epoll_create() creates an epoll instance and returns a file
    descriptor referring to that instance.
+
+              int epoll_create(int size); // size is ignored
+
 *  Interest in particular file descriptors is then registered via
    epoll_ctl(). The set of file descriptors currently registered on an
    epoll instance is sometimes called an epoll set.
-*  epoll_wait() waits for I/O events, blocking the calling thread if
+
+              int epoll_ctl(int epfd, // fd got from the previous call
+                            int op, // what do you want to do on it ?
+                            int fd, // on what do you want to work on ?
+                            struct epoll_event *event); // ready event on fd
+
+*  epoll_wait() waits for I/O events, *blocking* the calling thread if
    no events are currently available.
 
-As we will see all the machinery in java.nio._ will exactly mimick the same
-logic we found at the OS level with the epoll() calls.
+             int epoll_wait(int epfd, // epoll fd
+                           struct epoll_event *events, // ready events available
+                           int maxevents,
+                           int timeout);
+
+As we will see all the machinery in java.nio._ will exactly mimic the
+same logic we found at the OS level with the epoll() calls.
+
+java.nio._
+----------
